@@ -1,5 +1,3 @@
-# price-checker
-
 # Bitcoin Price Tracker
 
 A Go application that fetches Bitcoin prices from the CoinGecko API every 4 hours and stores them in a PostgreSQL database. The application runs in Docker containers for easy deployment.
