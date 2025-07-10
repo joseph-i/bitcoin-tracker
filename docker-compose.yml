@@ -1,0 +1,103 @@
+# docker-compose.yml
+version: '3.8'
+
+services:
+  # PostgreSQL database service
+  postgres:
+    image: postgres:15-alpine
+    container_name: bitcoin_db
+    restart: unless-stopped
+    
+    # Environment variables for PostgreSQL setup
+    environment:
+      # Database configuration
+      POSTGRES_DB: bitcoin_db
+      POSTGRES_USER: bitcoin_user
+      POSTGRES_PASSWORD: bitcoin_pass
+      
+      # Performance tuning
+      POSTGRES_INITDB_ARGS: "--data-checksums"
+    
+    # Volume for persistent data storage
+    # This ensures data survives container restarts
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      # Optional: mount initialization scripts
+      # - ./init-scripts:/docker-entrypoint-initdb.d
+    
+    # Port mapping (optional, for external access)
+    ports:
+      - "5432:5432"
+    
+    # Health check to ensure database is ready
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bitcoin_user -d bitcoin_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    
+    # Resource limits (optional)
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
+
+  # Bitcoin price tracker application
+  bitcoin-tracker:
+    build: .
+    container_name: bitcoin_tracker
+    restart: unless-stopped
+    
+    # Environment variables for the application
+    environment:
+      # Database connection string
+      DATABASE_URL: "postgres://bitcoin_user:bitcoin_pass@postgres:5432/bitcoin_db?sslmode=disable"
+      
+      # Timezone setting
+      TZ: "UTC"
+    
+    # Wait for PostgreSQL to be ready before starting
+    depends_on:
+      postgres:
+        condition: service_healthy
+    
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+        reservations:
+          memory: 64M
+
+  # Optional: pgAdmin for database management
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: bitcoin_pgadmin
+    restart: unless-stopped
+    
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@example.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    
+    ports:
+      - "5050:80"
+    
+    depends_on:
+      - postgres
+    
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+
+# Named volumes for persistent data
+volumes:
+  postgres_data:
+    driver: local
+  pgadmin_data:
+    driver: local
+
+# Network configuration (optional)
+networks:
+  default:
+    driver: bridge
